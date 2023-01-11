@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
+
 #importing needed modules
 from tkinter import *
 from collections import deque
-import heapq,time,random, threading
+import heapq,time,random,threading
 
 #setting up colors ,algo and control variables
 neibs = ((1,0),(-1,0),(0,1),{0,-1})
@@ -226,10 +227,16 @@ def abort(canv,mat,root):
 
 #running the speciefied algo        
 def run_algo(curr,canv,root,mat,ind,cur,abort_button):
+    #setting mode to wall only
     cur.config(text = 'Current Mode: Wall')
+    
+    #unbinding unwanted keys
     unbind_all(root)
+    
+    #clearing any explored blocks and getting start pos
     start_i,start_j = abort(canv,mat,root)
 
+    #packing the abort button
     abort_button.pack(side = RIGHT,padx = (0,10),ipadx=(4),ipady=(4))
     
     #running thread for indicator
@@ -237,15 +244,16 @@ def run_algo(curr,canv,root,mat,ind,cur,abort_button):
     x = threading.Thread(target=ind_motion, args=(ind,root,'Running'))
     x.start()
 
-    
     #running the algorithm 
     name = curr['text']
     res = algorithms[name](start_i,start_j,canv,root,mat)
+    
+    #re-binding all keys
     re_bind_all(curr,canv,root,mat,ind,cur,abort_button)
 
+    #stopping indicator and unpacking abort button
     Running = False
     abort_button.pack_forget()
-    root.update()
 
 #main function
 def run():
