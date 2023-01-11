@@ -10,7 +10,8 @@ neibs = ((1,0),(-1,0),(0,1),{0,-1})
 Running = False
 explored = '#6efffd'
 wall = '#2c4b7d'
-empty = '#04071c' 
+empty = '#04071c'
+speed = 0.01
 
 #on hovering
 def on_enter(e):
@@ -74,6 +75,16 @@ def re_bind_all(curr,canv,root,mat,ind,cur,abort_button):
                 if w2['text'] == 'Run':
                     w2.bind('<Button-1>',lambda e: run_algo(curr,canv,root,mat,ind,cur,abort_button))
 
+#indicator motion
+def ind_motion(ind,root,cap):
+    ind.pack(side = RIGHT,padx = (0,20),ipadx=(10),anchor = W)
+    while Running:
+        for start in range(1,6):
+            if not Running: break
+            ind.config(text = cap + ('.'*start) + (' '*(5-start)))
+            root.update()
+            time.sleep(0.08)
+    ind.pack_forget()
 
 #changing block status
 def change_block_status(block,canv,mode,):
@@ -93,6 +104,12 @@ def change_block_status(block,canv,mode,):
             canv.itemconfigure(block, fill = '#04071c')
         elif curr_color == '#888ebd':
             canv.itemconfigure(block, fill = '#2c4b7d' )
+
+#changing current speed
+def adjust_speed(val):
+    global speed
+    speed = int(val)/10000
+    print(speed)
 
 #clearing the grid
 def clear_grid(e,canv,mat,root,ind,cur,curr,abort_button):
@@ -168,8 +185,7 @@ def create_Maze(e,canv,mat,root,ind,cur,curr,abort_button):
             continue
         root.update()
     Running = False
-    root.update()
-    
+    root.update()   
 
     start_x, start_y = random.sample(cells,1)[0]
     cells.remove((start_x,start_y))
@@ -181,8 +197,29 @@ def create_Maze(e,canv,mat,root,ind,cur,curr,abort_button):
     root.update()
     re_bind_all(curr,canv,root,mat,ind,cur,abort_button)
 
+#Breadth First Search Algorithm
+def BFS(i,j,canv,root,mat):
+    q = deque()
+    q.append((i,j))
+    while q:
+        x,y = q.popleft()
+        for dx,dy in neibs:
+            new_x = x+dx ; new_y = y+dy
+            if not Running: 
+                return 
+            if new_x<0 or new_x>=40 or new_y<0  or new_y>= 40:
+                continue
+            if canv.itemcget(mat[new_x][new_y],'fill') == 'red':
+                return 
+            if canv.itemcget(mat[new_x][new_y],'fill') in [wall,explored,'yellow']:
+                continue
+            canv.itemconfig(mat[new_x][new_y],fill = explored)
+            q.append((new_x,new_y))
+            time.sleep(0.02) ; root.update()
+            
 #Depth First Search Algorithm
 def DFS(i,j,canv,root,mat):
+    global speed
     if not Running: return True
     if i<0 or i>=40 or j < 0  or j >= 40:
         return False
@@ -192,28 +229,14 @@ def DFS(i,j,canv,root,mat):
         return True
     if canv.itemcget(mat[i][j],'fill') != 'yellow':
         canv.itemconfig(mat[i][j],fill = explored)
-    time.sleep(0.05) ; root.update()
+    time.sleep(speed) ; root.update()
     for dy,dx in neibs:
         if DFS(i+dy,j+dx,canv,root,mat):
             return True
     return False
         
-#hashmap for accessing each function by name    
-algorithms = {'Depth First Search':DFS,'A Star':'A','Dijkstra':'D','Breadth First Search':'BFS','Bellman ford':'B'}
-
-#indicator motion
-def ind_motion(ind,root,cap):
-    ind.pack(side = RIGHT,padx = (0,20),ipadx=(10),anchor = W)
-    while Running:
-        for start in range(1,6):
-            if not Running: break
-            ind.config(text = cap + ('.'*start) + (' '*(5-start)))
-            root.update()
-            time.sleep(0.08)
-    ind.pack_forget()
-
+#removing explored locations and get start position
 def abort(canv,mat,root):
-    #removing explored locations and get start position
     global Running
     Running = False 
     for i in range(40):
@@ -224,6 +247,9 @@ def abort(canv,mat,root):
                 canv.itemconfig(mat[i][j],fill = empty)
             root.update()
     return x,y
+
+#hashmap for accessing each function by name    
+algorithms = {'Depth First Search':DFS,'A Star':'A','Dijkstra':'D','Breadth First Search':BFS,'Bellman ford':'B'}
 
 #running the speciefied algo        
 def run_algo(curr,canv,root,mat,ind,cur,abort_button):
@@ -367,6 +393,14 @@ def run():
     abort_button.bind('<Enter>', lambda e: on_enter(e))
     abort_button.bind('<Leave>', lambda e: on_leave(e))
     abort_button.bind('<Button-1>' ,lambda e: abort(main_canvas,mat,root))
+    
+    #caption for the algo speed bar
+    algo_speed_ind = Label(master = bottom_bar,text = 'Speed: ',bg = bottom_bar['bg'],fg = 'white',font = ('',8))
+    algo_speed_ind.pack(side = LEFT,padx=(5,0))
+    # Horizental scrollable algo speed indicator
+    algo_speed_bar = Scale(highlightthickness=0,width=10,activebackground='#5f669c',length=80,sliderlength=10,bd=0,troughcolor='#222852' ,showvalue=False,master=bottom_bar,orient=HORIZONTAL,bg = wall,fg = 'white')
+    algo_speed_bar.config(command = adjust_speed)
+    algo_speed_bar.pack(side = LEFT, padx=(5,0))
 
     #Running Indicator
     ind = Label(master = bottom_bar,text = 'Running',bg = bottom_bar['bg'],fg = 'white',font = ('',10))
