@@ -2,13 +2,24 @@
 #importing needed modules
 from tkinter import *
 from collections import deque
-import heapq,time,random
+import heapq,time,random, threading
+
+#setting up colors ,algo and control variables
+neibs = ((1,0),(-1,0),(0,1),{0,-1})
+Running = False
+explored = '#6efffd'
+wall = '#2c4b7d'
+empty = '#04071c' 
 
 #on hovering
 def on_enter(e):
+    if e.widget['text'] == 'Abort':
+        e.widget.config(cursor = 'hand2',bg ='#ad575f') ; return
     e.widget.config(cursor = 'hand2',bg ='#5f669c')
 #on unhovering
 def on_leave(e):
+    if e.widget['text'] == 'Abort':
+        e.widget.config(cursor = '',bg ='#5e151c') ; return
     e.widget.config(cursor='',bg = '#6d75c2'  if not e.widget['text'] != 'Run' else '#222852')
 #hiding the algo menu
 def hide_menu(e,d):
@@ -29,11 +40,38 @@ def pick(e,curr_algo,menu,button):
 def block_enter(e,m):
     if m.itemcget(e,'fill') == '#04071c':
         m.itemconfig(e,fill = '#888ebd')
-
 #block unhover
 def block_leave(e,m):
     if m.itemcget(e,'fill') == '#888ebd':
         m.itemconfig(e,fill = '#04071c')
+#set mode
+def set_mode(e,curr):
+    temp = e.widget['text'].split()[1]
+    curr.config(text = 'Current Mode: '+temp)
+
+#unbinding all buttons during process
+def unbind_all(root):
+    banned = {'Abort','↓','Depth First Search','Breadth First Search','Dijkstra','Bellman ford','A Star'}
+    for w in root.winfo_children():
+        for w2 in w.winfo_children():
+            if isinstance(w2,Label):
+                if w2['text'] not in banned:
+                    w2.unbind('<Button-1>')
+    root.update()
+
+#rebinding all buttons after process
+def re_bind_all(curr,canv,root,mat,ind,cur,abort_button):
+    for w in root.winfo_children():
+        for w2 in w.winfo_children():
+            if isinstance(w2,Label):
+                if w2['text'] in ['Set Start','Set Target','Create Wall']:
+                    w2.bind('<Button-1>',lambda e: set_mode(e,cur))
+                if w2['text'] == 'Clear Grid':
+                    w2.bind('<Button-1>', lambda e: clear_grid(e,canv,mat,root,ind,cur,curr,abort_button))
+                if w2['text'] == 'Generate Maze':
+                    w2.bind('<Button-1>', lambda e: create_Maze(e,canv,mat,root,ind,cur,curr,abort_button))
+                if w2['text'] == 'Run':
+                    w2.bind('<Button-1>',lambda e: run_algo(curr,canv,root,mat,ind,cur,abort_button))
 
 
 #changing block status
@@ -43,6 +81,7 @@ def change_block_status(block,canv,mode,):
         canv.dtag('start')
         canv.itemconfigure(block,fill = 'yellow')
         canv.addtag_withtag('start',block)
+
     elif mode['text'].split()[2] == 'Target' and canv.itemcget(block,'fill') !='yellow':
         canv.itemconfigure('end',fill = '#04071c')
         canv.dtag('end')
@@ -55,7 +94,11 @@ def change_block_status(block,canv,mode,):
             canv.itemconfigure(block, fill = '#2c4b7d' )
 
 #clearing the grid
-def clear_grid(e,canv,mat,root):
+def clear_grid(e,canv,mat,root,ind,cur,curr,abort_button):
+    unbind_all(root)
+    global Running ; Running = True
+    x = threading.Thread(target=ind_motion, args=(ind,root,'Resetting Grid'))
+    x.start()
     canv.dtag('start') ; canv.dtag('end')
     grads = ['#2379fa','#3684f7','#4a8ff7','#5e94e6','#7dadf5','#93baf5','#a8c5f0']
     grads.reverse()
@@ -71,30 +114,35 @@ def clear_grid(e,canv,mat,root):
             for l in range(len(q)):
                 x,y = q[l]
                 canv.itemconfig(mat[x][y],fill = grads[l])                
-            root.update_idletasks()
+            root.update()
     for i,j in q:
         canv.itemconfig(mat[i][j],fill = '#04071c')
 
-    if e.widget['text'] == 'Clear Grid':
-        canv.itemconfigure(mat[20][8],fill = 'yellow')
-        canv.addtag_withtag('start',mat[20][8])
-        canv.itemconfigure(mat[20][32],fill = 'red')
-        canv.addtag_withtag('end',mat[20][32])
-    root.update_idletasks()
+    canv.itemconfigure(mat[20][8],fill = 'yellow')
+    canv.addtag_withtag('start',mat[20][8])
+    canv.itemconfigure(mat[20][32],fill = 'red')
+    canv.addtag_withtag('end',mat[20][32])
+    re_bind_all(curr,canv,root,mat,ind,cur,abort_button)
+    Running = False
+    root.update()
 
-
+#helper function for creating the maze <init grid with all walls>
 def all_walls(e,canv,mat,root):
     for i in range(40):
         for j in range(40):
             block  = mat[i][j]
             time.sleep(0.0001)
             canv.itemconfig(block,fill = '#2c4b7d')
-            root.update_idletasks()
+            root.update()
     root.update()
 
-
 #generating a random maze
-def create_Maze(e,canv,mat,root):
+def create_Maze(e,canv,mat,root,ind,cur,curr,abort_button):
+    unbind_all(root)
+    global Running ; Running = True
+    x = threading.Thread(target=ind_motion, args=(ind,root,'Generating Maze'))
+    x.start()
+
     canv.dtag('start') ; canv.dtag('end')
     all_walls(e,canv,mat,root)
     cells = {(x, y) for x in range(39) for y in range(39)}
@@ -117,8 +165,11 @@ def create_Maze(e,canv,mat,root):
                 cells.add((x, y))
         else:
             continue
-        root.update_idletasks()
+        root.update()
+    Running = False
+    root.update()
     
+
     start_x, start_y = random.sample(cells,1)[0]
     cells.remove((start_x,start_y))
     end_x, end_y = random.sample(cells,1)[0]
@@ -127,11 +178,74 @@ def create_Maze(e,canv,mat,root):
     canv.addtag_withtag('start',mat[start_x][start_y])
     canv.addtag_withtag('end',mat[end_x][end_y])
     root.update()
+    re_bind_all(curr,canv,root,mat,ind,cur,abort_button)
+
+#Depth First Search Algorithm
+def DFS(i,j,canv,root,mat):
+    if not Running: return True
+    if i<0 or i>=40 or j < 0  or j >= 40:
+        return False
+    if canv.itemcget(mat[i][j],'fill') in [wall,explored]:
+        return False
+    if canv.itemcget(mat[i][j],'fill') == 'red':
+        return True
+    if canv.itemcget(mat[i][j],'fill') != 'yellow':
+        canv.itemconfig(mat[i][j],fill = explored)
+    time.sleep(0.05) ; root.update()
+    for dy,dx in neibs:
+        if DFS(i+dy,j+dx,canv,root,mat):
+            return True
+    return False
         
-#set mode
-def set_mode(e,curr):
-    temp = e.widget['text'].split()[1]
-    curr.config(text = 'Current Mode: '+temp)
+#hashmap for accessing each function by name    
+algorithms = {'Depth First Search':DFS,'A Star':'A','Dijkstra':'D','Breadth First Search':'BFS','Bellman ford':'B'}
+
+#indicator motion
+def ind_motion(ind,root,cap):
+    ind.pack(side = RIGHT,padx = (0,20),ipadx=(10),anchor = W)
+    while Running:
+        for start in range(1,6):
+            if not Running: break
+            ind.config(text = cap + ('.'*start) + (' '*(5-start)))
+            root.update()
+            time.sleep(0.08)
+    ind.pack_forget()
+
+def abort(canv,mat,root):
+    #removing explored locations and get start position
+    global Running
+    Running = False 
+    for i in range(40):
+        for j in range(40):
+            if canv.itemcget(mat[i][j],'fill') == 'yellow':
+                x,y = i,j
+            if canv.itemcget(mat[i][j],'fill') == explored:
+                canv.itemconfig(mat[i][j],fill = empty)
+            root.update()
+    return x,y
+
+#running the speciefied algo        
+def run_algo(curr,canv,root,mat,ind,cur,abort_button):
+    cur.config(text = 'Current Mode: Wall')
+    unbind_all(root)
+    start_i,start_j = abort(canv,mat,root)
+
+    abort_button.pack(side = RIGHT,padx = (0,10),ipadx=(4),ipady=(4))
+    
+    #running thread for indicator
+    global Running ; Running = True
+    x = threading.Thread(target=ind_motion, args=(ind,root,'Running'))
+    x.start()
+
+    
+    #running the algorithm 
+    name = curr['text']
+    res = algorithms[name](start_i,start_j,canv,root,mat)
+    re_bind_all(curr,canv,root,mat,ind,cur,abort_button)
+
+    Running = False
+    abort_button.pack_forget()
+    root.update()
 
 #main function
 def run():
@@ -142,6 +256,7 @@ def run():
     root.title('Path Finding Visualizer')
     root.config(bg = '#04071c')
     root.resizable(False,False)
+    binds = {}
 
     #top bar
     top_bar = Frame(bg = '#10111c')
@@ -170,6 +285,8 @@ def run():
     run_button.pack(side = LEFT,padx = (5,0),ipadx=(5),ipady=(5))
     run_button.bind('<Enter>', lambda e: on_enter(e))
     run_button.bind('<Leave>', lambda e: on_leave(e))
+    run_button.bind('<Button-1>',lambda e: run_algo(curr_algo,main_canvas,root,mat,ind,current_mode,abort_button))
+
 
     # pick start button
     pick_start_button = Label(master = top_bar,text = 'Set Start',bg = '#222852',fg = 'white',font = ('',8))
@@ -228,14 +345,24 @@ def run():
     clear_grid_button.pack(side = LEFT,padx = (5,0),ipadx=(4),ipady=(4))
     clear_grid_button.bind('<Enter>', lambda e: on_enter(e))
     clear_grid_button.bind('<Leave>', lambda e: on_leave(e))
-    clear_grid_button.bind('<Button-1>', lambda e: clear_grid(e,main_canvas,mat,root))
+    clear_grid_button.bind('<Button-1>', lambda e: clear_grid(e,main_canvas,mat,root,ind,current_mode,curr_algo,abort_button))
 
-    #clear walls
+    #Button for generating a randomized maze
     maze_button = Label(master = bottom_bar,text = 'Generate Maze',bg = '#222852',fg = 'white',font = ('',8))
     maze_button.pack(side = LEFT,padx = (5,0),ipadx=(4),ipady=(4))
     maze_button.bind('<Enter>', lambda e: on_enter(e))
     maze_button.bind('<Leave>', lambda e: on_leave(e))
-    maze_button.bind('<Button-1>', lambda e: create_Maze(e,main_canvas,mat,root))
+    maze_button.bind('<Button-1>', lambda e: create_Maze(e,main_canvas,mat,root,ind,current_mode,curr_algo,abort_button))
+
+    #clear walls
+    abort_button = Label(master = bottom_bar,text = 'Abort',bg = '#5e151c',fg = 'white',font = ('',8))
+    abort_button.bind('<Enter>', lambda e: on_enter(e))
+    abort_button.bind('<Leave>', lambda e: on_leave(e))
+    abort_button.bind('<Button-1>' ,lambda e: abort(main_canvas,mat,root))
+
+    #Running Indicator
+    ind = Label(master = bottom_bar,text = 'Running',bg = bottom_bar['bg'],fg = 'white',font = ('',10))
+    
     
     #application loop
     root.mainloop()
@@ -245,3 +372,4 @@ def run():
 if __name__ == '__main__':
     #start of application
     run()
+    
