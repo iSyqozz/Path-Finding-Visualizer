@@ -11,16 +11,16 @@ Running = False
 explored = '#6efffd'
 wall = '#2c4b7d'
 empty = '#04071c'
-speed = 0.01
+speed = 0.0401
 
 #on hovering
 def on_enter(e):
-    if e.widget['text'] == 'Abort':
+    if e.widget['text'] in ['Abort','Help']:
         e.widget.config(cursor = 'hand2',bg ='#ad575f') ; return
     e.widget.config(cursor = 'hand2',bg ='#5f669c')
 #on unhovering
 def on_leave(e):
-    if e.widget['text'] == 'Abort':
+    if e.widget['text'] in ['Abort','Help']:
         e.widget.config(cursor = '',bg ='#5e151c') ; return
     e.widget.config(cursor='',bg = '#6d75c2'  if not e.widget['text'] != 'Run' else '#222852')
 #hiding the algo menu
@@ -108,8 +108,20 @@ def change_block_status(block,canv,mode,):
 #changing current speed
 def adjust_speed(val):
     global speed
-    speed = int(val)/10000
-    print(speed)
+    speed = 0.0501 - int(val)/2000
+
+#opening help menu
+def open_help_menu(e,canv,mat,root,ind,cur,curr,abort_button):
+    unbind_all(root)
+    root.update()
+    help_window = Toplevel()
+    help_window.geometry('400x400')
+    help_window.title('Help')
+    help_window.config(bg = '#04071c')
+    help_window.resizable(False,False)
+
+
+
 
 #clearing the grid
 def clear_grid(e,canv,mat,root,ind,cur,curr,abort_button):
@@ -286,11 +298,10 @@ def run():
     
     #main window configuration
     root = Tk()
-    root.geometry('500x500')
+    root.geometry('600x500')
     root.title('Path Finding Visualizer')
     root.config(bg = '#04071c')
     root.resizable(False,False)
-    binds = {}
 
     #top bar
     top_bar = Frame(bg = '#10111c')
@@ -302,7 +313,7 @@ def run():
 
     # a label for current mode
     current_mode = Label(bg = '#04071c',text = 'Current Mode: Wall',fg = 'white',bd=1)
-    current_mode.place(x = 45,y = 40)
+    current_mode.place(x = 45,y = 50)
     
     # algorithms dropdown menu
     algo_menu = Frame(bg = '#222852')
@@ -359,7 +370,7 @@ def run():
 
     #main grid for visualization
     main_canvas = Canvas(bd = 0,highlightthickness=0,width=401,height=401,bg = '#04071c' )
-    main_canvas.pack(side = TOP,pady=(20,0))
+    main_canvas.pack(side = TOP,pady=(30))
     mat = [[0]*40 for _ in range(40)]
     for y in range(0,400,10):
         for x in range(0,400,10):
@@ -397,13 +408,21 @@ def run():
     #caption for the algo speed bar
     algo_speed_ind = Label(master = bottom_bar,text = 'Speed: ',bg = bottom_bar['bg'],fg = 'white',font = ('',8))
     algo_speed_ind.pack(side = LEFT,padx=(5,0))
+    
     # Horizental scrollable algo speed indicator
     algo_speed_bar = Scale(highlightthickness=0,width=10,activebackground='#5f669c',length=80,sliderlength=10,bd=0,troughcolor='#222852' ,showvalue=False,master=bottom_bar,orient=HORIZONTAL,bg = wall,fg = 'white')
     algo_speed_bar.config(command = adjust_speed)
     algo_speed_bar.pack(side = LEFT, padx=(5,0))
 
-    #Running Indicator
-    ind = Label(master = bottom_bar,text = 'Running',bg = bottom_bar['bg'],fg = 'white',font = ('',10))
+    #help button for opening help menu
+    help_button = Label(master = bottom_bar,text = 'Help',bg = '#5e151c',fg = 'white',font = ('',8))
+    help_button.bind('<Enter>', lambda e: on_enter(e))
+    help_button.bind('<Leave>', lambda e: on_leave(e))
+    help_button.bind('<Button-1>' ,lambda e: open_help_menu(e,main_canvas,mat,root,ind,current_mode,curr_algo,abort_button))
+    help_button.pack(side = LEFT , padx=(10,0),ipadx=(4),ipady=(4))
+
+    #general Indicator
+    ind = Label(master = bottom_bar,text = '',bg = bottom_bar['bg'],fg = 'white',font = ('',10))
     
     
     #application loop
